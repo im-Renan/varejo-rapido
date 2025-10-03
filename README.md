@@ -25,7 +25,7 @@ O sistema tem como objetivo realizar o **processamento e a gestão de vendas** e
 ## Como Executar  
 
 ### Requisitos  
-- Java JDK 23+  
+- Java JDK 21+  
 - MySQL 8.0+  
 - IntelliJ IDEA (ou outra IDE compatível)  
 - Postman  
