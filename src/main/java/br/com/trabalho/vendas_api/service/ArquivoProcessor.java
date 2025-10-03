@@ -19,6 +19,12 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
+/**
+ * Serviço responsável pelo processamento de arquivos de vendas (.dat).
+ * <p>
+ * Recebe arquivos via upload, lê linha a linha, extrai os campos, verifica e atualiza
+ * clientes e produtos no banco de dados, e persiste vendas evitando duplicações.
+ */
 @Service
 public class ArquivoProcessor {
 
@@ -31,6 +37,12 @@ public class ArquivoProcessor {
     @Autowired
     private VendaRepository vendaRepository;
 
+    /**
+     * Processa um arquivo enviado via upload, lendo cada linha e persistindo os dados.
+     *
+     * @param arquivo arquivo enviado via MultipartFile
+     * @return mensagem informando a quantidade de linhas processadas e erros
+     */
     public String processarArquivoUpload(MultipartFile arquivo) {
         try (BufferedReader br = new BufferedReader(new InputStreamReader(arquivo.getInputStream()))) {
             String linha;
@@ -53,6 +65,12 @@ public class ArquivoProcessor {
         }
     }
 
+    /**
+     * Processa uma linha do arquivo, extraindo os campos e salvando no banco.
+     *
+     * @param linha linha do arquivo
+     * @return true se a linha foi processada com sucesso, false caso contrário
+     */
     public boolean processarLinha(String linha) {
         if (linha == null || linha.trim().isEmpty()) {
             return false;
@@ -76,6 +94,12 @@ public class ArquivoProcessor {
         }
     }
 
+    /**
+     * Extrai os campos de uma linha do arquivo em um mapa.
+     *
+     * @param linha linha do arquivo
+     * @return mapa com os campos extraídos
+     */
     private Map<String, Object> extrairCampos(String linha) {
         Map<String, Object> campos = new HashMap<>();
 
@@ -83,47 +107,31 @@ public class ArquivoProcessor {
             System.out.println("📋 Processando linha: '" + linha + "'");
             System.out.println("📏 Tamanho da linha: " + linha.length());
 
-            // CORREÇÃO: Busca dinâmica dos campos baseada em padrões
-
-            // ID_PRODUTO (primeiros 4 dígitos)
+            // Extrai cada campo com base na posição e formato esperado
             String idProdutoStr = linha.substring(0, 4).trim();
-            System.out.println("🔹 ID Produto (0-3): '" + idProdutoStr + "'");
             campos.put("idProduto", Integer.parseInt(idProdutoStr));
 
-            // NOME_PRODUTO (até encontrar 4 dígitos seguidos - ID_CLIENTE)
             int posIdCliente = encontrarProximos4Digitos(linha, 4);
             String nomeProduto = linha.substring(4, posIdCliente).trim();
-            System.out.println("🔹 Nome Produto (4-" + (posIdCliente-1) + "): '" + nomeProduto + "'");
             campos.put("nomeProduto", nomeProduto);
 
-            // ID_CLIENTE (4 dígitos após o nome do produto)
             String idClienteStr = linha.substring(posIdCliente, posIdCliente + 4).trim();
-            System.out.println("🔹 ID Cliente (" + posIdCliente + "-" + (posIdCliente+3) + "): '" + idClienteStr + "'");
             campos.put("idCliente", Integer.parseInt(idClienteStr));
 
-            // NOME_CLIENTE (até encontrar 3 dígitos seguidos - QTD_VENDIDA)
             int posQuantidade = encontrarProximos3Digitos(linha, posIdCliente + 4);
             String nomeCliente = linha.substring(posIdCliente + 4, posQuantidade).trim();
-            System.out.println("🔹 Nome Cliente (" + (posIdCliente+4) + "-" + (posQuantidade-1) + "): '" + nomeCliente + "'");
             campos.put("nomeCliente", nomeCliente);
 
-            // QTD_VENDIDA (3 dígitos)
             String quantidadeStr = linha.substring(posQuantidade, posQuantidade + 3).trim();
-            System.out.println("🔹 Quantidade (" + posQuantidade + "-" + (posQuantidade+2) + "): '" + quantidadeStr + "'");
             campos.put("quantidade", Integer.parseInt(quantidadeStr));
 
-            // VALOR_UNIT (10 dígitos após a quantidade)
             int posValor = posQuantidade + 3;
             String valorStr = linha.substring(posValor, posValor + 10).trim();
-            System.out.println("🔹 Valor Unitário (" + posValor + "-" + (posValor+9) + "): '" + valorStr + "'");
             campos.put("valorUnitario", converterValorUnitario(valorStr));
 
-            // DATA_VENDA (últimos 10 caracteres)
             String dataStr = linha.substring(linha.length() - 10).trim();
-            System.out.println("🔹 Data Venda (" + (linha.length()-10) + "-" + (linha.length()-1) + "): '" + dataStr + "'");
             campos.put("dataVenda", dataStr);
 
-            System.out.println("✅ Campos extraídos com sucesso!\n");
             return campos;
 
         } catch (Exception e) {
@@ -133,6 +141,9 @@ public class ArquivoProcessor {
         }
     }
 
+    /**
+     * Procura os próximos 4 dígitos a partir de uma posição.
+     */
     private int encontrarProximos4Digitos(String linha, int inicio) {
         for (int i = inicio; i <= linha.length() - 4; i++) {
             String substr = linha.substring(i, i + 4);
@@ -143,6 +154,9 @@ public class ArquivoProcessor {
         throw new RuntimeException("Não encontrou 4 dígitos a partir da posição " + inicio);
     }
 
+    /**
+     * Procura os próximos 3 dígitos a partir de uma posição.
+     */
     private int encontrarProximos3Digitos(String linha, int inicio) {
         for (int i = inicio; i <= linha.length() - 3; i++) {
             String substr = linha.substring(i, i + 3);
@@ -153,6 +167,9 @@ public class ArquivoProcessor {
         throw new RuntimeException("Não encontrou 3 dígitos a partir da posição " + inicio);
     }
 
+    /**
+     * Converte string de valor unitário para Double, tratando zeros à esquerda.
+     */
     private Double converterValorUnitario(String valorStr) {
         if (valorStr == null || valorStr.trim().isEmpty()) {
             return 0.0;
@@ -161,24 +178,18 @@ public class ArquivoProcessor {
         valorStr = valorStr.trim();
 
         try {
-            // Remove zeros à esquerda
             String valorSemZeros = valorStr.replaceFirst("^0+", "");
-
-            // Se ficou vazio após remover zeros, é zero
             if (valorSemZeros.isEmpty()) return 0.0;
 
-            // Se já tem ponto decimal, converte diretamente
             if (valorSemZeros.contains(".")) {
                 return Double.parseDouble(valorSemZeros);
             }
 
-            // Se não tem ponto, adiciona antes dos últimos 2 dígitos
             if (valorSemZeros.length() > 2) {
                 String parteInteira = valorSemZeros.substring(0, valorSemZeros.length() - 2);
                 String parteDecimal = valorSemZeros.substring(valorSemZeros.length() - 2);
                 return Double.parseDouble(parteInteira + "." + parteDecimal);
             } else {
-                // Se tem 1 ou 2 dígitos, é valor decimal pequeno
                 return Double.parseDouble("0." + valorSemZeros);
             }
 
@@ -188,9 +199,11 @@ public class ArquivoProcessor {
         }
     }
 
+    /**
+     * Processa os campos extraídos, atualizando clientes, produtos e vendas.
+     */
     private void processarCampos(Map<String, Object> campos) {
         try {
-            // Extrai os valores do mapa
             Integer idProduto = (Integer) campos.get("idProduto");
             String nomeProduto = (String) campos.get("nomeProduto");
             Integer idCliente = (Integer) campos.get("idCliente");
@@ -199,19 +212,15 @@ public class ArquivoProcessor {
             Double valorUnitario = (Double) campos.get("valorUnitario");
             String dataStr = (String) campos.get("dataVenda");
 
-            // Converte a data
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
             LocalDate data = LocalDate.parse(dataStr, formatter);
 
-            // Processa cliente e produto
             Cliente cliente = processarCliente(idCliente, nomeCliente);
             Produto produto = processarProduto(idProduto, nomeProduto, valorUnitario);
 
-            // Verifica se a venda já existe (evita duplicação)
             boolean vendaExiste = vendaExiste(data, cliente, produto, quantidade);
 
             if (!vendaExiste) {
-                // Cria e salva a venda
                 Venda venda = new Venda();
                 venda.setCliente(cliente);
                 venda.setProduto(produto);
@@ -221,10 +230,6 @@ public class ArquivoProcessor {
 
                 vendaRepository.save(venda);
 
-                System.out.println("✅ Venda processada: " + quantidade + "x " + produto.getNome() +
-                        " para " + cliente.getNome() + " - Total: R$ " + (valorUnitario * quantidade));
-            } else {
-                System.out.println("⚠️ Venda já existe: " + produto.getNome() + " para " + cliente.getNome());
             }
 
         } catch (Exception e) {
@@ -233,19 +238,23 @@ public class ArquivoProcessor {
         }
     }
 
-    // Método auxiliar para verificar se venda já existe
+    /**
+     * Verifica se uma venda já existe para evitar duplicação.
+     */
     private boolean vendaExiste(LocalDate dataVenda, Cliente cliente, Produto produto, Integer quantidade) {
         return vendaRepository.findByDataVendaAndClienteIdAndProdutoId(dataVenda, cliente.getId(), produto.getId())
                 .stream()
                 .anyMatch(v -> v.getQuantidade().equals(quantidade));
     }
 
+    /**
+     * Processa ou cria um cliente, atualizando o nome se necessário.
+     */
     private Cliente processarCliente(Integer id, String nome) {
         Optional<Cliente> clienteExistente = clienteRepository.findById(id);
 
         if (clienteExistente.isPresent()) {
             Cliente cliente = clienteExistente.get();
-            // Atualiza nome se mudou
             if (!cliente.getNome().equals(nome)) {
                 cliente.setNome(nome);
                 return clienteRepository.save(cliente);
@@ -259,12 +268,14 @@ public class ArquivoProcessor {
         }
     }
 
+    /**
+     * Processa ou cria um produto, atualizando nome e preço se necessário.
+     */
     private Produto processarProduto(Integer id, String nome, Double valorUnitario) {
         Optional<Produto> produtoExistente = produtoRepository.findById(id);
 
         if (produtoExistente.isPresent()) {
             Produto produto = produtoExistente.get();
-            // Atualiza se nome ou preço mudaram
             boolean atualizado = false;
             if (!produto.getNome().equals(nome)) {
                 produto.setNome(nome);

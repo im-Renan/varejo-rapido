@@ -7,6 +7,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+/**
+ * Controlador REST responsável pelo upload e teste de arquivos.
+ * Permite upload de arquivos .dat e métodos de diagnóstico para depuração.
+ */
 @RestController
 @RequestMapping("/arquivo")
 @CrossOrigin(origins = "*")
@@ -15,6 +19,12 @@ public class ArquivoController {
     @Autowired
     private ArquivoProcessor arquivoProcessor;
 
+    /**
+     * Endpoint para upload de arquivo .dat.
+     *
+     * @param file Arquivo enviado pelo cliente via multipart/form-data.
+     * @return ResponseEntity com mensagem de sucesso ou erro.
+     */
     @PostMapping("/upload")
     public ResponseEntity<String> uploadArquivo(@RequestParam("file") MultipartFile file) {
         try {
@@ -45,12 +55,17 @@ public class ArquivoController {
         }
     }
 
-    // 🧪 MÉTODO DE DIAGNÓSTICO - ADICIONE ESTE MÉTODO
+    /**
+     * Endpoint de diagnóstico para testar se o arquivo chega corretamente.
+     * Útil para depuração de problemas de envio via Postman ou front-end.
+     *
+     * @param file Arquivo enviado opcionalmente pelo cliente.
+     * @return ResponseEntity com informações do arquivo ou mensagem de erro.
+     */
     @PostMapping("/teste-simples")
     public ResponseEntity<String> testeSimples(@RequestParam(value = "file", required = false) MultipartFile file) {
         System.out.println("=== 🧪 TESTE DIAGNÓSTICO INICIADO ===");
 
-        // Verifica se o file veio nulo
         if (file == null) {
             System.out.println("❌ FILE É NULL - O parâmetro 'file' não está chegando!");
             System.out.println("💡 Provável problema: Key no Postman não é 'file'");
@@ -77,7 +92,13 @@ public class ArquivoController {
         return ResponseEntity.ok("✅ Teste OK! Arquivo: " + file.getOriginalFilename() + " (" + file.getSize() + " bytes)");
     }
 
-    // 🔍 MÉTODO ALTERNATIVO PARA DEBUG - ADICIONE ESTE TAMBÉM
+    /**
+     * Endpoint alternativo de depuração para analisar a request completa.
+     * Mostra método, headers e verifica se é multipart/form-data.
+     *
+     * @param request HttpServletRequest recebido pelo Spring.
+     * @return ResponseEntity com informações da request ou mensagem de erro.
+     */
     @PostMapping("/debug-request")
     public ResponseEntity<String> debugRequest(HttpServletRequest request) {
         System.out.println("=== 🔍 ANALISANDO REQUEST ===");
@@ -89,7 +110,6 @@ public class ArquivoController {
             System.out.println("  " + headerName + ": " + request.getHeader(headerName));
         });
 
-        // Verifica se é multipart
         if (request.getContentType() == null || !request.getContentType().startsWith("multipart/form-data")) {
             System.out.println("❌ NÃO É MULTIPART/FORM-DATA!");
             System.out.println("💡 Content-Type atual: " + request.getContentType());
